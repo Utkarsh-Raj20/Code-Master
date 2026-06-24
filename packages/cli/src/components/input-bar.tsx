@@ -35,54 +35,55 @@ export function InputBar({OnSubmit, disabled = false}: Props) {
     setSelectedIndex,
   } = UseCommandMenu();
 
+  
+  
+  const handleTextareaContentChange = useCallback (()=>{
+    const textarea = textareaRef.current;
+    if(!textarea)return;
+    
+    handleContentChange(textarea.plainText)
+  },[]);
+  
+  
+  const handleSubmit = useCallback(()=>{
+    if(disabled) return;
+    const textarea = textareaRef.current;
+    
+    if(!textarea) return;
+    
+    const text = textarea.plainText.trim();
+    if(text.length ===0)return;
+    
+    
+    OnSubmit(text);
+    textarea.setText("");
+    
+  },[disabled,OnSubmit])
+  
+  
+  const handleCommand = useCallback((
+    command: Command | undefined
+  )=>{
+    const textarea = textareaRef.current;
+    if(!textarea || !command) return;
+    textarea.setText("");
+    
+    if(command.action){
+      command.action({
+        exit: () => renderer.destroy(),
+      });
+    }else{
+      textarea.insertText(command.value + " ");
+    }
+    
+  },[renderer])
+  
   const handleCommandExecute = useCallback(
     (index:number)=>{
       const command = resolveCommand(index);
       handleCommand(command);
-  },[]);
-
-
-  const handleTextareaContentChange = useCallback (()=>{
-    const textarea = textareaRef.current;
-    if(!textarea)return;
-
-    handleContentChange(textarea.plainText)
-  },[]);
-
-
-  const handleSubmit = useCallback(()=>{
-    if(disabled) return;
-    const textarea = textareaRef.current;
-
-    if(!textarea) return;
-
-    const text = textarea.plainText.trim();
-    if(text.length ===0)return;
-
-
-   OnSubmit(text);
-   textarea.setText("");
-
-  },[disabled,OnSubmit])
-
-
-  const handleCommand = useCallback((
-      command: Command | undefined
-    )=>{
-      const textarea = textareaRef.current;
-      if(!textarea || !command) return;
-      textarea.setText("");
-
-      if(command.action){
-        command.action({
-          exit: () => renderer.destroy(),
-        });
-      }else{
-        textarea.insertText(command.value + " ");
-      }
-
-  },[renderer])
-
+  },[resolveCommand, handleCommand]);
+  
   useEffect(()=>{
     const textarea = textareaRef.current;
     if(!textarea) return;
