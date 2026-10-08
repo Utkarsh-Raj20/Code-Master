@@ -1,0 +1,40 @@
+{
+  "name": "@mastercode/cli",
+  "module": "src/index.tsx",
+  "type": "module",
+  "private": true,
+  "bin": {
+    "mastercode": "./bin/mastercode",
+    "nightcode": "./bin/mastercode"
+  },
+  "scripts": {
+    "dev": "bun run --watch src/index.tsx",
+    "build": "bun build src/index.tsx --outdir dist --target bun"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@types/react": "^19.2.14"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "@ai-sdk/anthropic": "^3.0.68",
+    "@ai-sdk/google": "^4.0.69",
+    "@ai-sdk/openai": "^3.0.52",
+    "@ai-sdk/react": "^3.0.186",
+    "@hono/zod-validator": "^0.7.6",
+    "@mastercode/shared": "workspace:*",
+    "@opentui/core": "^0.1.97",
+    "@opentui/react": "^0.1.97",
+    "ai": "^6.0.184",
+    "date-fns": "^4.1.0",
+    "hono": "^4.12.12",
+    "open": "^11.0.0",
+    "opentui-spinner": "^0.0.6",
+    "pretty-ms": "^9.3.0",
+    "react": "^19.2.4",
+    "react-router": "^7.14.0",
+    "zod": "^4.3.6"
+  }
+}

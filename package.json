@@ -1,0 +1,14 @@
+{
+  "name": "mastercode",
+  "version": "1.0.0",
+  "workspaces": ["packages/*"],
+  "scripts": {
+    "dev": "bun run --watch packages/cli/src/index.tsx",
+    "dev:cli": "bun run --watch packages/cli/src/index.tsx",
+    "build:cli": "bun run --filter @mastercode/cli build",
+    "link:cli": "bun run build:cli && cd packages/cli && bun link"
+  },
+  "dependencies": {
+    "dotenv": "^17.4.2"
+  }
+}
