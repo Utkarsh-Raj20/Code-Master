@@ -6,6 +6,7 @@ import { Mode, type ModeType } from "@mastercode/shared";
 import { TextAttributes } from "@opentui/core";
 import { ToolAccordion } from "./tool-accordion";
 import type { ToolPart } from "./tool-accordion";
+import { useState } from "react";
 
 type ClientMessagePart = Message["parts"][number];
 
@@ -16,6 +17,7 @@ type Props = {
   durationMs?: number;
   fallbackNotice?: string;
   pipelineNotice?: string;
+  promptOptimization?: { original: string; optimized: string };
   streaming?: boolean;
 };
 
@@ -48,6 +50,85 @@ function groupConsecutiveParts(parts: ClientMessagePart[]): PartGroup[] {
   return groups;
 };
 
+function PromptOptimizationBlock({
+  original,
+  optimized,
+}: {
+  original: string;
+  optimized: string;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const { colors } = useTheme();
+
+  return (
+    <box
+      flexDirection="column"
+      paddingX={3}
+      paddingBottom={1}
+      width="100%"
+      gap={1}
+    >
+      {/* Header row */}
+      <box
+        flexDirection="row"
+        gap={1}
+        onMouseDown={() => setExpanded((v) => !v)}
+      >
+        <text fg="green">✨</text>
+        <text fg="green" attributes={TextAttributes.BOLD}>
+          Prompt optimized
+        </text>
+        <text fg={colors.dimSeparator} attributes={TextAttributes.DIM}>
+          {expanded ? "▲ hide" : "▼ show original"}
+        </text>
+      </box>
+
+      {/* Expanded: show before → after */}
+      {expanded && (
+        <box flexDirection="column" gap={1} width="100%">
+          {/* Original */}
+          <box flexDirection="column" gap={0}>
+            <text fg="yellow" attributes={TextAttributes.DIM}>
+              Before:
+            </text>
+            <box
+              paddingX={2}
+              border={["left"]}
+              borderColor="yellow"
+              customBorderChars={{
+                ...EmptyBorder,
+                vertical: "│",
+              }}
+              width="100%"
+            >
+              <text attributes={TextAttributes.DIM}>{original}</text>
+            </box>
+          </box>
+
+          {/* Optimized */}
+          <box flexDirection="column" gap={0}>
+            <text fg="green" attributes={TextAttributes.DIM}>
+              After:
+            </text>
+            <box
+              paddingX={2}
+              border={["left"]}
+              borderColor="green"
+              customBorderChars={{
+                ...EmptyBorder,
+                vertical: "│",
+              }}
+              width="100%"
+            >
+              <text>{optimized}</text>
+            </box>
+          </box>
+        </box>
+      )}
+    </box>
+  );
+}
+
 export function BotMessage({ 
   parts,
   model,
@@ -55,6 +136,7 @@ export function BotMessage({
   durationMs,
   fallbackNotice,
   pipelineNotice,
+  promptOptimization,
   streaming = false,
 }: Props) {
   const { colors } = useTheme();
@@ -65,10 +147,18 @@ export function BotMessage({
           <text fg="yellow">{fallbackNotice}</text>
         </box>
       )}
-      {pipelineNotice && (
-        <box paddingX={3} paddingY={0} width="100%">
-          <text fg="green">{pipelineNotice}</text>
-        </box>
+      {/* Show rich optimization block if we have before/after, else plain notice */}
+      {promptOptimization ? (
+        <PromptOptimizationBlock
+          original={promptOptimization.original}
+          optimized={promptOptimization.optimized}
+        />
+      ) : (
+        pipelineNotice && (
+          <box paddingX={3} paddingY={0} width="100%">
+            <text fg="green">{pipelineNotice}</text>
+          </box>
+        )
       )}
       {groupConsecutiveParts(parts).map((group, i) => (
         <box key={group.key} width="100%" paddingTop={i === 0 ? 0 : 1}>

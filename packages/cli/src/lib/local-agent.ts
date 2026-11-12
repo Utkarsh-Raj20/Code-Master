@@ -54,6 +54,10 @@ type ChatMessageMetadata = {
   usage?: LanguageModelUsage;
   fallbackNotice?: string;
   pipelineNotice?: string;
+  promptOptimization?: {
+    original: string;
+    optimized: string;
+  };
 };
 
 type mastercodeUIMessage = UIMessage<ChatMessageMetadata, never, InferUITools<ToolContracts>>;
@@ -209,6 +213,7 @@ const chatApp = new Hono().post("/", zValidator("json", submitChatSchema), async
   // Stage 1 & 2: Prompt pipeline (hook + rewriter)
   // ---------------------------------------------------------------------------
   let pipelineNotice: string | undefined;
+  let promptOptimization: { original: string; optimized: string } | undefined;
   if (optimizePrompt || true /* hooks always run */) {
     // Find the last user text message
     const lastUserMsg = [...mergedMessages].reverse().find((m) => m.role === "user");
@@ -239,6 +244,10 @@ const chatApp = new Hono().post("/", zValidator("json", submitChatSchema), async
           } as mastercodeUIMessage;
         }
         pipelineNotice = "✨ Prompt optimized";
+        promptOptimization = {
+          original: lastUserText,
+          optimized: pipelineResult.finalPrompt,
+        };
       }
       if (pipelineResult.hookExecuted) {
         pipelineNotice = pipelineNotice
@@ -362,6 +371,7 @@ const chatApp = new Hono().post("/", zValidator("json", submitChatSchema), async
           model: activeModel,
           ...(fallbackNotice ? { fallbackNotice } : {}),
           ...(pipelineNotice ? { pipelineNotice } : {}),
+          ...(promptOptimization ? { promptOptimization } : {}),
         };
       }
 
@@ -374,6 +384,7 @@ const chatApp = new Hono().post("/", zValidator("json", submitChatSchema), async
         ...(completedUsage ? { usage: completedUsage } : {}),
         ...(fallbackNotice ? { fallbackNotice } : {}),
         ...(pipelineNotice ? { pipelineNotice } : {}),
+        ...(promptOptimization ? { promptOptimization } : {}),
       };
     },
     async onFinish(event) {

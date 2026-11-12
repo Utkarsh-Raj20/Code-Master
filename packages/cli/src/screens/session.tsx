@@ -53,6 +53,7 @@ function ChatMessage(
       durationMs={msg.metadata?.durationMs}
       fallbackNotice={msg.metadata?.fallbackNotice}
       pipelineNotice={msg.metadata?.pipelineNotice}
+      promptOptimization={msg.metadata?.promptOptimization}
       streaming={false}
     />
   );

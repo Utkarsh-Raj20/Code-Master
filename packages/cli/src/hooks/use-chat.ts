@@ -25,6 +25,10 @@ export type ChatMessageMetadata = {
   usage?: LanguageModelUsage;
   fallbackNotice?: string;
   pipelineNotice?: string;
+  promptOptimization?: {
+    original: string;
+    optimized: string;
+  };
 };
 
 type ChatTools = {
