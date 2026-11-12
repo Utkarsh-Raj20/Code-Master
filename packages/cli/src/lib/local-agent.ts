@@ -28,6 +28,10 @@ import {
   createFallbackNotice,
 } from "./fallback-router";
 import { runPromptPipeline } from "./prompt-pipeline";
+import { CostTracker } from "./cost-tracker";
+import { SkillManager } from "./skill-manager";
+import { McpManager } from "./mcp-manager";
+import { compressMessageHistory } from "./rolling-memory";
 import {
   createSession,
   getSession,
@@ -36,6 +40,7 @@ import {
   updateSessionMessages,
   type Session,
 } from "./session-store";
+import { AgentLogger } from "./agent-logger";
 
 
 // ---------------------------------------------------------------------------
@@ -124,7 +129,13 @@ const chatApp = new Hono().post("/", zValidator("json", submitChatSchema), async
   }
 
   const startTime = Date.now();
+  const logger = AgentLogger.forRequest(id, model, mode);
+  logger.incomingMessages(messages);
   const tools = getToolContracts(mode);
+
+  // Load skills catalog for progressive disclosure into the system prompt
+  SkillManager.loadSkills();
+  const skillsCatalog = SkillManager.getCatalogSummary();
 
   let activeModel = model;
   let resolvedModel;
@@ -164,6 +175,7 @@ const chatApp = new Hono().post("/", zValidator("json", submitChatSchema), async
   const previousMessages = Array.isArray(session.messages)
     ? (session.messages as unknown as mastercodeUIMessage[])
     : [];
+  logger.sessionMessages(previousMessages);
   const mergedMessages = [...previousMessages];
 
   for (const message of messages) {
@@ -181,10 +193,17 @@ const chatApp = new Hono().post("/", zValidator("json", submitChatSchema), async
     }
   }
 
-  const nextMessages = await validateUIMessages<mastercodeUIMessage>({
-    messages: mergedMessages,
-    tools,
-  });
+  logger.mergedMessages(mergedMessages);
+
+  try {
+    await validateUIMessages<mastercodeUIMessage>({
+      messages: mergedMessages,
+      tools,
+    });
+  } catch (err) {
+    logger.validationError(err);
+    throw err;
+  }
 
   // ---------------------------------------------------------------------------
   // Stage 1 & 2: Prompt pipeline (hook + rewriter)
@@ -229,31 +248,57 @@ const chatApp = new Hono().post("/", zValidator("json", submitChatSchema), async
     }
   }
 
-  // Re-validate after potential pipeline rewrite
-  const validatedMessages = await validateUIMessages<mastercodeUIMessage>({
-    messages: mergedMessages,
-    tools,
-  });
+  // Apply rolling memory compression if session history is large
+  const memoryResult = compressMessageHistory(mergedMessages);
+
+  // Re-validate after potential pipeline rewrite and compression
+  let validatedMessages: mastercodeUIMessage[];
+  try {
+    validatedMessages = await validateUIMessages<mastercodeUIMessage>({
+      messages: memoryResult.messages,
+      tools,
+    });
+  } catch (err) {
+    logger.validationError(err);
+    throw err;
+  }
   const modelMessages = await convertToModelMessages(validatedMessages, { tools });
+  logger.modelMessages(modelMessages);
   let completedUsage: LanguageModelUsage | null = null;
 
   // Resolve config file name for XML tagging in system prompt
   const configFilePath = getProjectConfigPath();
   const configFileName = configFilePath ? path.basename(configFilePath) : undefined;
 
+  // Merge MCP dynamic tools into the toolset (namespaced mcp__<server>__<tool>)
+  await McpManager.init();
+  const mcpTools = await McpManager.getAiSdkTools();
+  const combinedTools = { ...(tools as Record<string, any>), ...mcpTools };
+
   let result;
   try {
     result = streamText({
       model: resolvedModel.model,
-      system: buildSystemPrompt({ mode, projectConfig: findProjectConfig() ?? undefined, configFileName }),
+      system: buildSystemPrompt({ mode, projectConfig: findProjectConfig() ?? undefined, configFileName, skillsCatalog }),
       messages: modelMessages,
-      tools,
+      tools: combinedTools,
       providerOptions: resolvedModel.providerOptions,
       onFinish(event) {
         completedUsage = event.totalUsage;
+        if (event.totalUsage) {
+          const cachedTokens =
+            (event.totalUsage as any).cachedPromptTokens ??
+            (event.totalUsage as any).cachedTokens ??
+            0;
+          CostTracker.recordUsage(activeModel, {
+            promptTokens: event.totalUsage.inputTokens ?? 0,
+            completionTokens: event.totalUsage.outputTokens ?? 0,
+            cachedTokens,
+          });
+        }
       },
-      onError(error) {
-        return error instanceof Error ? error.message : String(error);
+      onError(event) {
+        logger.providerError(event.error);
       },
     });
   } catch (error) {
@@ -275,15 +320,26 @@ const chatApp = new Hono().post("/", zValidator("json", submitChatSchema), async
 
           result = streamText({
             model: resolvedModel.model,
-            system: buildSystemPrompt({ mode, projectConfig: findProjectConfig() ?? undefined, configFileName }),
+            system: buildSystemPrompt({ mode, projectConfig: findProjectConfig() ?? undefined, configFileName, skillsCatalog }),
             messages: modelMessages,
-            tools,
+            tools: combinedTools,
             providerOptions: resolvedModel.providerOptions,
             onFinish(event) {
               completedUsage = event.totalUsage;
+              if (event.totalUsage) {
+                const cachedTokens =
+                  (event.totalUsage as any).cachedPromptTokens ??
+                  (event.totalUsage as any).cachedTokens ??
+                  0;
+                CostTracker.recordUsage(activeModel, {
+                  promptTokens: event.totalUsage.inputTokens ?? 0,
+                  completionTokens: event.totalUsage.outputTokens ?? 0,
+                  cachedTokens,
+                });
+              }
             },
-            onError(err) {
-              return err instanceof Error ? err.message : String(err);
+            onError(event) {
+              logger.providerError(event.error);
             },
           });
         } catch {
@@ -321,12 +377,21 @@ const chatApp = new Hono().post("/", zValidator("json", submitChatSchema), async
       };
     },
     async onFinish(event) {
-      if (event.isAborted) return;
-      if (hasPendingToolCalls(event.responseMessage)) return;
+      if (event.isAborted) {
+        logger.finish("error", { reason: "aborted" });
+        return;
+      }
+      if (hasPendingToolCalls(event.responseMessage)) {
+        logger.finish("ok", { pendingTools: true });
+        return;
+      }
 
+      logger.finish("ok", { messageCount: event.messages.length });
       updateSessionMessages(id, event.messages);
     },
     onError(error) {
+      logger.providerError(error);
+      logger.finish("error", { error: String(error) });
       return error instanceof Error ? error.message : String(error);
     },
   });

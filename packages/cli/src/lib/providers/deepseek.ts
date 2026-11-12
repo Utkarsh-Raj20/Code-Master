@@ -11,6 +11,6 @@ export const deepseekProvider: AIProvider = {
       baseURL: "https://api.deepseek.com",
       apiKey,
     });
-    return deepseek(modelId);
+    return deepseek.chat(modelId);
   },
 };

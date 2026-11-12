@@ -19,6 +19,6 @@ export const openrouterProvider: AIProvider = {
     const normalizedModelId = modelId.startsWith("openrouter/")
       ? modelId.replace(/^openrouter\//, "")
       : modelId;
-    return openrouter(normalizedModelId);
+    return openrouter.chat(normalizedModelId);
   },
 };

@@ -2,6 +2,14 @@ import { mkdir, readFile, readdir, stat, writeFile } from "fs/promises";
 import { dirname, isAbsolute, join, relative, resolve } from "path";
 import { toolInputSchemas, Mode, type ModeType } from "@mastercode/shared";
 import { runDiagnostics } from "./diagnostics";
+import { CheckpointManager } from "./checkpoint-manager";
+import {
+  evaluateToolPermission,
+  type PermissionCheckResult,
+} from "./permission-guard";
+import { SkillManager } from "./skill-manager";
+import { McpManager } from "./mcp-manager";
+import { AstIndexer } from "./ast-indexer";
 
 const MAX_FILE_SIZE = 10_000;
 const MAX_RESULTS = 200;
@@ -27,12 +35,45 @@ function truncate(value: string, limit: number) {
     : value;
 }
 
+function assertToolAllowed(permission: PermissionCheckResult): void {
+  if (permission.decision === "deny") {
+    throw new Error(`Permission denied: ${permission.reason}`);
+  }
+  if (permission.decision === "prompt") {
+    throw new Error(`Action requires approval: ${permission.reason}`);
+  }
+}
+
 export async function executeLocalTool(toolName: string, input: unknown, mode: ModeType) {
-  if (mode === Mode.PLAN && !["readFile", "listDirectory", "glob", "grep"].includes(toolName)) {
+  // MCP tools are dynamically provided and route directly to their servers.
+  if (toolName.startsWith("mcp__")) {
+    return await McpManager.executeTool(toolName, input);
+  }
+
+  if (mode === Mode.PLAN && !["readFile", "listDirectory", "glob", "grep", "activateSkill", "symbolTopology"].includes(toolName)) {
     throw new Error(`Tool ${toolName} is not available in PLAN mode`);
   }
 
   switch (toolName) {
+    case "symbolTopology": {
+      const params = toolInputSchemas.symbolTopology.parse(input);
+      return AstIndexer.query(params, process.cwd());
+    }
+    case "activateSkill": {
+      const { skillName } = toolInputSchemas.activateSkill.parse(input);
+      const skill = SkillManager.getSkill(skillName);
+      if (!skill) {
+        throw new Error(
+          `Skill '${skillName}' not found in catalog. Available: ${Array.from(SkillManager.getSkillNames()).join(", ")}`,
+        );
+      }
+      return {
+        skill: skill.name,
+        description: skill.description,
+        instructions: skill.content,
+        sourcePath: skill.filePath,
+      };
+    }
     case "readFile": {
       const { path } = toolInputSchemas.readFile.parse(input);
       const { resolved } = resolveInsideCwd(path);
@@ -124,6 +165,8 @@ export async function executeLocalTool(toolName: string, input: unknown, mode: M
     case "writeFile": {
       const { path, content } = toolInputSchemas.writeFile.parse(input);
       const { cwd, resolved } = resolveInsideCwd(path);
+      assertToolAllowed(evaluateToolPermission("writeFile", { path: resolved, content }));
+      await CheckpointManager.recordPreEdit(resolved);
       await mkdir(dirname(resolved), { recursive: true });
       await writeFile(resolved, content, "utf-8");
 
@@ -145,6 +188,10 @@ export async function executeLocalTool(toolName: string, input: unknown, mode: M
     case "editFile": {
       const { path, oldString, newString } = toolInputSchemas.editFile.parse(input);
       const { cwd, resolved } = resolveInsideCwd(path);
+      assertToolAllowed(
+        evaluateToolPermission("editFile", { path: resolved, oldString, newString }),
+      );
+      await CheckpointManager.recordPreEdit(resolved);
       const content = await readFile(resolved, "utf-8");
       const occurrences = content.split(oldString).length - 1;
 
@@ -169,6 +216,7 @@ export async function executeLocalTool(toolName: string, input: unknown, mode: M
     }
     case "bash": {
       const { command, timeout = DEFAULT_TIMEOUT } = toolInputSchemas.bash.parse(input);
+      assertToolAllowed(evaluateToolPermission("bash", { command }));
       const proc = Bun.spawn(["bash", "-c", command], {
         cwd: resolveInsideCwd(".").resolved,
         stdout: "pipe",

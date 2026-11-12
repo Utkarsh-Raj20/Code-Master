@@ -6,7 +6,11 @@
     "dev": "bun run --watch packages/cli/src/index.tsx",
     "dev:cli": "bun run --watch packages/cli/src/index.tsx",
     "build:cli": "bun run --filter @mastercode/cli build",
-    "link:cli": "bun run build:cli && cd packages/cli && bun link"
+    "link:cli": "bun run build:cli && cd packages/cli && bun link",
+    "link:global": "bun packages/cli/bin/install-global.ts",
+    "test": "bun test",
+    "test:cli": "bun test packages/cli",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "dotenv": "^17.4.2"

@@ -11,6 +11,6 @@ export const groqProvider: AIProvider = {
       baseURL: "https://api.groq.com/openai/v1",
       apiKey,
     });
-    return groq(modelId);
+    return groq.chat(modelId);
   },
 };

@@ -90,29 +90,43 @@ export interface FallbackCandidate {
 }
 
 /**
+ * Optional dependency seam for deterministic testing of provider selection.
+ * When omitted, the real key-store and environment lookups are used.
+ */
+export interface FallbackKeyResolver {
+  getKey?: (provider: SupportedProvider) => string | null;
+  listConfiguredProviders?: () => SupportedProvider[];
+  getEnvironmentApiKey?: (provider: SupportedProvider) => string | undefined;
+}
+
+/**
  * Find the next available provider and fallback model with a configured API key.
  * Excludes the current provider so the system doesn't fall back to the same failing service.
  */
 export function getNextFallbackModel(
   currentModelId: string,
   currentProvider?: SupportedProvider,
+  resolver?: FallbackKeyResolver,
 ): FallbackCandidate | null {
   const resolvedCurrentProvider =
     currentProvider ?? findSupportedChatModel(currentModelId)?.provider;
 
-  // Find all configured providers
-  const storedConfigured = new Set(
+  const getKeyFn = resolver?.getKey ?? getKey;
+  const envKeyFn = resolver?.getEnvironmentApiKey ?? getEnvironmentApiKey;
+
+  const configuredProviders =
+    resolver?.listConfiguredProviders?.() ??
     listKeys()
       .filter((k) => k.isConfigured)
-      .map((k) => k.provider),
-  );
+      .map((k) => k.provider);
+  const storedConfigured = new Set(configuredProviders);
 
   for (const candidateProvider of PROVIDER_FALLBACK_PRIORITY) {
     // Don't fall back to the currently failing provider
     if (candidateProvider === resolvedCurrentProvider) continue;
 
     // Check stored key first, then environment variable
-    const key = getKey(candidateProvider) || getEnvironmentApiKey(candidateProvider);
+    const key = getKeyFn(candidateProvider) || envKeyFn(candidateProvider);
     if (key || storedConfigured.has(candidateProvider)) {
       const modelId = DEFAULT_FALLBACK_MODELS[candidateProvider];
       return {

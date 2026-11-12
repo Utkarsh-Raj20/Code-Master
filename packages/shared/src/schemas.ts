@@ -40,6 +40,13 @@ export const toolInputSchemas = {
     description: z.string().optional().describe("Short description of the command"),
     timeout: z.number().optional().describe("Timeout in milliseconds"),
   }),
+  activateSkill: z.object({
+    skillName: z.string().describe("The name of the skill to load from the available skills catalog"),
+  }),
+  symbolTopology: z.object({
+    symbol: z.string().optional().describe("Search for a symbol (function, class, interface, type) to find its definition and dependent files"),
+    file: z.string().optional().describe("Inspect import and export topology for a specific relative file path"),
+  }),
 } as const;
 
 export const readOnlyToolContracts = {
@@ -59,6 +66,16 @@ export const readOnlyToolContracts = {
     description:
       "Search file contents with a regular expression under the current project directory.",
     inputSchema: toolInputSchemas.grep,
+  }),
+  activateSkill: tool({
+    description:
+      "Load in-depth workflows, documentation, and executable instructions for a skill from the catalog.",
+    inputSchema: toolInputSchemas.activateSkill,
+  }),
+  symbolTopology: tool({
+    description:
+      "Query project AST topology to inspect exported symbols, declarations, and file dependency graphs without reading entire files.",
+    inputSchema: toolInputSchemas.symbolTopology,
   }),
 } as const;
 

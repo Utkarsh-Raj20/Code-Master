@@ -35,25 +35,27 @@ const KEYS_FILE = path.join(CONFIG_DIR, "keys.json");
 const SALT_FILE = path.join(CONFIG_DIR, ".salt");
 
 function ensureConfigDir() {
-  if (!fs.existsSync(CONFIG_DIR)) {
-    fs.mkdirSync(CONFIG_DIR, { recursive: true });
-    // Migrate legacy config files if present
-    if (fs.existsSync(LEGACY_CONFIG_DIR)) {
-      const legacySalt = path.join(LEGACY_CONFIG_DIR, ".salt");
-      const legacyKeys = path.join(LEGACY_CONFIG_DIR, "keys.json");
-      const legacyPrefs = path.join(LEGACY_CONFIG_DIR, "preferences.json");
-      if (fs.existsSync(legacySalt) && !fs.existsSync(SALT_FILE)) {
-        try { fs.copyFileSync(legacySalt, SALT_FILE); } catch {}
-      }
-      if (fs.existsSync(legacyKeys) && !fs.existsSync(KEYS_FILE)) {
-        try { fs.copyFileSync(legacyKeys, KEYS_FILE); } catch {}
-      }
-      const prefsFile = path.join(CONFIG_DIR, "preferences.json");
-      if (fs.existsSync(legacyPrefs) && !fs.existsSync(prefsFile)) {
-        try { fs.copyFileSync(legacyPrefs, prefsFile); } catch {}
+  try {
+    if (!fs.existsSync(CONFIG_DIR)) {
+      fs.mkdirSync(CONFIG_DIR, { recursive: true });
+      // Migrate legacy config files if present
+      if (fs.existsSync(LEGACY_CONFIG_DIR)) {
+        const legacySalt = path.join(LEGACY_CONFIG_DIR, ".salt");
+        const legacyKeys = path.join(LEGACY_CONFIG_DIR, "keys.json");
+        const legacyPrefs = path.join(LEGACY_CONFIG_DIR, "preferences.json");
+        if (fs.existsSync(legacySalt) && !fs.existsSync(SALT_FILE)) {
+          try { fs.copyFileSync(legacySalt, SALT_FILE); } catch {}
+        }
+        if (fs.existsSync(legacyKeys) && !fs.existsSync(KEYS_FILE)) {
+          try { fs.copyFileSync(legacyKeys, KEYS_FILE); } catch {}
+        }
+        const prefsFile = path.join(CONFIG_DIR, "preferences.json");
+        if (fs.existsSync(legacyPrefs) && !fs.existsSync(prefsFile)) {
+          try { fs.copyFileSync(legacyPrefs, prefsFile); } catch {}
+        }
       }
     }
-  }
+  } catch {}
 }
 
 function getSalt(): Buffer {

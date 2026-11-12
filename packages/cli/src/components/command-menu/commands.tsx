@@ -1,13 +1,19 @@
 import { SUPPORTED_CHAT_MODELS } from "@mastercode/shared";
-import { 
+import {
   AgentsDialogContent,
   KeysDialogContent,
   ModelsDialogContent,
   SessionsDialogContent,
+  SkillsDialogContent,
   ThemeDialogContent,
 } from "../dialogs";
 import type { Command } from "./types";
 import { apiClient } from "../../lib/api-client";
+import { CheckpointManager } from "../../lib/checkpoint-manager";
+import { CostTracker } from "../../lib/cost-tracker";
+import { SkillManager } from "../../lib/skill-manager";
+import { McpManager } from "../../lib/mcp-manager";
+import { AgentLogger } from "../../lib/agent-logger";
 
 export const COMMANDS: Command[] = [
   {
@@ -20,11 +26,11 @@ export const COMMANDS: Command[] = [
   },
   {
     name: "init",
-    description: "Initialize .mastercode.md project instructions",
+    description: "Initialize project instructions (<project>.md)",
     value: "/init",
     action: async (ctx) => {
       ctx.toast.show({
-        message: "Analyzing project and generating .mastercode.md...",
+        message: "Analyzing project and generating instructions...",
         variant: "info",
       });
       try {
@@ -39,10 +45,13 @@ export const COMMANDS: Command[] = [
           });
           return;
         }
+        const fileName = (data as any).filePath
+          ? (data as any).filePath.split(/[\\/]/).pop()
+          : "project instructions";
         ctx.toast.show({
           message: (data as any).existed
-            ? "Updated .mastercode.md successfully!"
-            : "Created .mastercode.md successfully!",
+            ? `Updated ${fileName} successfully!`
+            : `Created ${fileName} successfully!`,
           variant: "success",
         });
       } catch (err) {
@@ -65,29 +74,12 @@ export const COMMANDS: Command[] = [
     },
   },
   {
-    name: "models",
-    description: "Select AI model for generation",
-    value: "/models",
-    action: (ctx) => {
-      ctx.dialog.open({
-        title: "Select Model",
-        children: (
-          <ModelsDialogContent
-            models={SUPPORTED_CHAT_MODELS.map((model) => model.id)}
-            onSelectModel={ctx.setModel}
-          />
-        ),
-      });
-    },
-  },
-  {
-    // Alias: /model → opens same model picker (matches Claude Code's /model command)
     name: "model",
-    description: "Switch model mid-session",
+    description: "Select AI model for generation",
     value: "/model",
     action: (ctx) => {
       ctx.dialog.open({
-        title: "Switch Model",
+        title: "Select Model",
         children: (
           <ModelsDialogContent
             models={SUPPORTED_CHAT_MODELS.map((model) => model.id)}
@@ -146,19 +138,92 @@ export const COMMANDS: Command[] = [
     },
   },
   {
-    // Alias: /rewrite → same toggle
-    name: "rewrite",
-    description: "Alias for /optimize — toggle prompt rewriting",
-    value: "/rewrite",
-    action: (ctx) => {
-      ctx.toggleOptimizePrompt();
-      const next = !ctx.optimizePrompt;
+    name: "undo",
+    description: "Roll back the last file edits",
+    value: "/undo",
+    action: async (ctx) => {
+      const result = await CheckpointManager.rollbackLastStep();
+      if (!result.stepId || result.restoredFiles.length === 0) {
+        ctx.toast.show({ message: "No edits to undo", variant: "info" });
+        return;
+      }
+      const names = result.restoredFiles.map(
+        (filePath) => filePath.split(/[\\/]/).pop() ?? filePath,
+      );
       ctx.toast.show({
-        message: next
-          ? "✨ Prompt optimization ON"
-          : "Prompt optimization OFF",
-        variant: next ? "success" : "info",
+        message: `Restored ${result.restoredFiles.length} file${
+          result.restoredFiles.length === 1 ? "" : "s"
+        }: ${names.join(", ")}`,
+        variant: "success",
       });
+    },
+  },
+  {
+    name: "cost",
+    description: "Show session token usage, cache savings and estimated cost",
+    value: "/cost",
+    action: (ctx) => {
+      const summary = CostTracker.getSummary();
+      const cachedPart =
+        summary.totalCachedTokens > 0
+          ? ` (cached: ${summary.totalCachedTokens.toLocaleString()})`
+          : "";
+      ctx.toast.show({
+        message: `Tokens: ${CostTracker.formatTokens()}${cachedPart} | Cost: ${CostTracker.formatCost()} | Turns: ${summary.turnsCount}`,
+        variant: "info",
+      });
+    },
+  },
+  {
+    name: "skills",
+    description: "Browse and inspect available skills",
+    value: "/skills",
+    action: (ctx) => {
+      ctx.dialog.open({
+        title: "Available Skills",
+        width: 68,
+        children: <SkillsDialogContent />,
+      });
+    },
+  },
+  {
+    name: "mcp",
+    description: "Show MCP server connection status",
+    value: "/mcp",
+    action: async (ctx) => {
+      const statuses = await McpManager.refresh();
+      if (statuses.length === 0) {
+        ctx.toast.show({ message: "No MCP servers configured", variant: "info" });
+        return;
+      }
+      const summary = statuses
+        .map((server) =>
+          server.status === "connected"
+            ? `● ${server.name} Connected (${server.toolCount} tools)`
+            : `○ ${server.name} Failed`,
+        )
+        .join(" • ");
+      ctx.toast.show({ message: summary, variant: "info" });
+    },
+  },
+  {
+    name: "logs",
+    description: "Show agent log file location and recent diagnostic errors",
+    value: "/logs",
+    action: (ctx) => {
+      const logPath = AgentLogger.currentLogPath();
+      const lastError = AgentLogger.getLastError();
+      if (lastError) {
+        ctx.toast.show({
+          message: `Logs: ${logPath} | Last error: ${lastError}`,
+          variant: "error",
+        });
+      } else {
+        ctx.toast.show({
+          message: `Logs: ${logPath} (no errors recorded today)`,
+          variant: "info",
+        });
+      }
     },
   },
   {

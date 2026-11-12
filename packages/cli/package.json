@@ -25,6 +25,7 @@
     "@ai-sdk/react": "^3.0.186",
     "@hono/zod-validator": "^0.7.6",
     "@mastercode/shared": "workspace:*",
+    "@modelcontextprotocol/sdk": "^1.32.2",
     "@opentui/core": "^0.1.97",
     "@opentui/react": "^0.1.97",
     "ai": "^6.0.184",

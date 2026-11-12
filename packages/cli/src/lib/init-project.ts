@@ -2,25 +2,25 @@
  * init-project.ts
  *
  * Powers the `/init` command — scans the current project, sends a targeted
- * prompt to the active AI model, and writes the result to `.mastercode.md`.
+ * prompt to the active AI model, and writes the result to `<projectname>.md`.
  *
  * Mirrors Claude Code's `/init` workflow:
  *   1. Discover key project files (package.json, README, tsconfig, etc.)
  *   2. Read a representative sample of the source tree
  *   3. Ask the AI to generate comprehensive project instructions
- *   4. Write the result to `.mastercode.md` in the project root
+ *   4. Write the result to `<projectname>.md` in the project root
  */
 import fs from "node:fs";
 import path from "node:path";
 import { generateText } from "ai";
 import { resolveChatModel } from "./providers";
 import { getActiveProvider, getKey } from "./key-store";
+import { getProjectName } from "./project-config";
 
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
 
-const INIT_FILE = ".mastercode.md";
 const MAX_FILE_BYTES = 8_000;
 const MAX_FILES_SCANNED = 30;
 
@@ -162,7 +162,7 @@ export type InitResult =
 /**
  * Run the `/init` workflow:
  *  1. Snapshot the project
- *  2. Ask the AI to generate a `.mastercode.md`
+ *  2. Ask the AI to generate a `<projectname>.md`
  *  3. Write the file and return the result
  *
  * @param modelId  The currently selected chat model ID
@@ -172,7 +172,9 @@ export async function runInit(
   modelId: string,
   cwd: string = process.cwd(),
 ): Promise<InitResult> {
-  const outPath = path.join(cwd, INIT_FILE);
+  const projectName = getProjectName(cwd);
+  const fileName = `${projectName}.md`;
+  const outPath = path.join(cwd, fileName);
 
   // Resolve model + API key
   const provider = getActiveProvider();
@@ -195,16 +197,21 @@ export async function runInit(
   const tree = buildTree(cwd);
   const keyFiles = collectKeyFiles(cwd);
   const existed = fs.existsSync(outPath);
-  const existingContent = existed ? safeRead(outPath) : null;
+  const legacyMastercodePath = path.join(cwd, ".mastercode.md");
+  const existingContent = existed
+    ? safeRead(outPath)
+    : fs.existsSync(legacyMastercodePath)
+      ? safeRead(legacyMastercodePath)
+      : null;
 
   const fileContext = keyFiles
     .map((f) => `### ${f.path}\n\`\`\`\n${f.content}\n\`\`\``)
     .join("\n\n");
 
   // Ask the AI
-  const prompt = `You are initialising a Mastercode project configuration file.
+  const prompt = `You are initialising a project configuration file (\`${fileName}\`).
 
-Mastercode is a standalone AI coding CLI (like Claude Code). When a user runs \`/init\` in their project directory, you analyse the codebase and produce a \`.mastercode.md\` file that acts as the project's persistent memory — injected verbatim into the system prompt on every session.
+When a user runs \`/init\` in their project directory, you analyse the codebase and produce a \`${fileName}\` file that acts as the project's persistent memory — injected verbatim into the system prompt on every session.
 
 ## Project Directory Tree
 \`\`\`
@@ -214,11 +221,11 @@ ${tree || "(empty)"}
 ## Key Project Files
 ${fileContext || "(none found)"}
 
-${existingContent ? `## Existing .mastercode.md (update/improve this)\n\`\`\`markdown\n${existingContent}\n\`\`\`` : ""}
+${existingContent ? `## Existing Instructions (update/improve this)\n\`\`\`markdown\n${existingContent}\n\`\`\`` : ""}
 
 ---
 
-Generate a comprehensive \`.mastercode.md\` for this project. The file should cover:
+Generate a comprehensive \`${fileName}\` for this project. The file should cover:
 
 1. **Project Overview** — What the project is and does (1-2 sentences)
 2. **Architecture** — Key packages/modules and their roles
@@ -231,7 +238,7 @@ Rules for the output:
 - Write in clean Markdown
 - Be concise but complete — every bullet should add value
 - Omit sections that don't apply or have no information
-- Output ONLY the raw Markdown content for \`.mastercode.md\` — no preamble, no explanation, no code fences around the whole thing
+- Output ONLY the raw Markdown content for \`${fileName}\` — no preamble, no explanation, no code fences around the whole thing
 - Start directly with the project name as an \`#\` heading`;
 
   let text: string;
@@ -256,7 +263,7 @@ Rules for the output:
   } catch (err) {
     return {
       ok: false,
-      error: err instanceof Error ? err.message : "Failed to write .mastercode.md",
+      error: err instanceof Error ? err.message : `Failed to write ${fileName}`,
     };
   }
 

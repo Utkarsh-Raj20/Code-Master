@@ -2,9 +2,16 @@
 import dotenv from "dotenv";
 import path from "path";
 
+// 1. Load project-local .env from active working directory (where the user runs the CLI)
+dotenv.config({
+  path: path.resolve(process.cwd(), ".env"),
+  quiet: true,
+});
+
+// 2. Load global fallback .env from Nightcode installation repository
 dotenv.config({
   path: path.resolve(import.meta.dirname, "../../../.env"),
   quiet: true,
 });
 
-await import("../src/index.tsx");
+await import(path.resolve(import.meta.dirname, "../src/index.tsx"));

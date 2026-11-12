@@ -63,10 +63,23 @@ export function useChat(sessionId: string, initialMessages: Message[], optimizeP
           (m) => m.metadata?.mode && m.metadata?.model,
         )?.metadata;
         const previousMessage = messages[messages.length - 2];
-        const requestMessages =
-          message.role === "assistant" && previousMessage?.role === "user"
-            ? [previousMessage, message]
-            : [message];
+        // When the last message is an assistant message being re-submitted
+        // after tool calls complete, we need to send the full recent context
+        // (user + assistant with embedded tool results) so the server's
+        // validateUIMessages can match every tool call ID to its output.
+        // A simple [user, assistant] slice is sufficient for the initial user
+        // turn; for the tool-result round-trip the assistant parts already
+        // carry `output-available` state so we send all messages from the
+        // last user message onward.
+        let requestMessages: typeof messages;
+        if (message.role === "assistant" && previousMessage?.role === "user") {
+          // Find the index of the last user message and send everything from
+          // there, so tool-result parts are included in the assistant message.
+          const lastUserIdx = messages.findLastIndex((m) => m.role === "user");
+          requestMessages = lastUserIdx >= 0 ? messages.slice(lastUserIdx) : [previousMessage, message];
+        } else {
+          requestMessages = [message];
+        }
 
         const modelId = (message.metadata?.model ?? metadata?.model) as string | undefined;
         const modelDef = modelId ? findSupportedChatModel(modelId) : undefined;

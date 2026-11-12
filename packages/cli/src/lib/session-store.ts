@@ -43,25 +43,27 @@ const SESSIONS_DIR = path.join(CONFIG_DIR, "sessions");
 const LEGACY_SESSIONS_DIR = path.join(LEGACY_CONFIG_DIR, "sessions");
 
 function ensureSessionsDir(): void {
-  if (!fs.existsSync(SESSIONS_DIR)) {
-    fs.mkdirSync(SESSIONS_DIR, { recursive: true });
-    // Migrate legacy sessions if present
-    if (fs.existsSync(LEGACY_SESSIONS_DIR)) {
-      try {
-        const files = fs.readdirSync(LEGACY_SESSIONS_DIR);
-        for (const file of files) {
-          if (file.endsWith(".json")) {
-            fs.copyFileSync(
-              path.join(LEGACY_SESSIONS_DIR, file),
-              path.join(SESSIONS_DIR, file)
-            );
+  try {
+    if (!fs.existsSync(SESSIONS_DIR)) {
+      fs.mkdirSync(SESSIONS_DIR, { recursive: true });
+      // Migrate legacy sessions if present
+      if (fs.existsSync(LEGACY_SESSIONS_DIR)) {
+        try {
+          const files = fs.readdirSync(LEGACY_SESSIONS_DIR);
+          for (const file of files) {
+            if (file.endsWith(".json")) {
+              fs.copyFileSync(
+                path.join(LEGACY_SESSIONS_DIR, file),
+                path.join(SESSIONS_DIR, file)
+              );
+            }
           }
+        } catch {
+          // Non-fatal
         }
-      } catch {
-        // Non-fatal
       }
     }
-  }
+  } catch {}
 }
 
 function sessionFilePath(id: string): string {

@@ -4,9 +4,10 @@ import { useTheme } from "../../providers/theme";
 import type { Message } from "../../hooks/use-chat";
 import { Mode, type ModeType } from "@mastercode/shared";
 import { TextAttributes } from "@opentui/core";
+import { ToolAccordion } from "./tool-accordion";
+import type { ToolPart } from "./tool-accordion";
 
 type ClientMessagePart = Message["parts"][number];
-type ToolPart = Extract<ClientMessagePart, { type: `tool-${string}` | "dynamic-tool" }>;
 
 type Props = {
   parts: ClientMessagePart[];
@@ -14,24 +15,13 @@ type Props = {
   mode: ModeType;
   durationMs?: number;
   fallbackNotice?: string;
+  pipelineNotice?: string;
   streaming?: boolean;
-};
-
-function formatToolName(name: string): string {
-  return name
-    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
-    .replace(/^./, (c) => c.toUpperCase());
 };
 
 function isToolPart(part: ClientMessagePart): part is ToolPart {
   return part.type === "dynamic-tool" || part.type.startsWith("tool-");
 };
-
-function formatToolArgs(tc: ToolPart): string {
-  if (!("input" in tc) || tc.input == null) return "";
-  if (typeof tc.input !== "object") return String(tc.input);
-  return Object.values(tc.input).map(String).join(" ");
-}
 
 type PartGroup = {
   type: ClientMessagePart["type"];
@@ -64,6 +54,7 @@ export function BotMessage({
   mode,
   durationMs,
   fallbackNotice,
+  pipelineNotice,
   streaming = false,
 }: Props) {
   const { colors } = useTheme();
@@ -72,6 +63,11 @@ export function BotMessage({
       {fallbackNotice && (
         <box paddingX={3} paddingY={0} width="100%">
           <text fg="yellow">{fallbackNotice}</text>
+        </box>
+      )}
+      {pipelineNotice && (
+        <box paddingX={3} paddingY={0} width="100%">
+          <text fg="green">{pipelineNotice}</text>
         </box>
       )}
       {groupConsecutiveParts(parts).map((group, i) => (
@@ -98,31 +94,7 @@ export function BotMessage({
             }
 
             if (isToolPart(part)) {
-              const toolName =
-                part.type === "dynamic-tool" ? part.toolName : part.type.slice("tool-".length);
-
-              return (
-                <box
-                  key={part.toolCallId}
-                  border={["left"]}
-                  borderColor={colors.thinkingBorder}
-                  customBorderChars={{
-                    ...EmptyBorder,
-                    vertical: "│",
-                  }}
-                  width="100%"
-                  paddingX={2}
-                >
-                  <text attributes={TextAttributes.DIM}>
-                    <em fg={colors.info}>{formatToolName(toolName)}:</em> {formatToolArgs(part)}
-                    {part.state !== "output-available" && part.state !== "output-error" 
-                      ? " …" 
-                      : ""
-                    }
-                    {part.state === "output-error" ? ` ${part.errorText}` : ""}
-                  </text>
-                </box>
-              );
+              return <ToolAccordion key={part.toolCallId} part={part} colors={colors} />;
             }
 
             if (part.type === "text") {

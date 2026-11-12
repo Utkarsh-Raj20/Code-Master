@@ -15,6 +15,7 @@ type DialogSearchListProps<T> = {
   getKey: (item: T) => string;
   placeholder?: string;
   emptyText?: string;
+  maxVisibleItems?: number;
 };
 
 export function DialogSearchList<T>({
@@ -26,6 +27,7 @@ export function DialogSearchList<T>({
   getKey,
   placeholder = "Search",
   emptyText = "No results",
+  maxVisibleItems,
 }: DialogSearchListProps<T>) {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [searchValue, setSearchValue] = useState("");
@@ -48,7 +50,7 @@ export function DialogSearchList<T>({
   const filtered = searchValue 
     ? items.filter((item) => filterFn(item, searchValue)) : items;
 
-  const visibleHeight = Math.min(filtered.length, MAX_VISIBLE_ITEMS);
+  const visibleHeight = Math.min(filtered.length, maxVisibleItems ?? MAX_VISIBLE_ITEMS);
 
   useKeyboard((key) => {
     if (!isTopLayer("dialog")) return;

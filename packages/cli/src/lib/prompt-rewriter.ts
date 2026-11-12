@@ -68,7 +68,7 @@ export async function rewritePrompt(
       model: resolved.model,
       system: META_PROMPT,
       prompt: rawPrompt,
-      maxTokens: 512,
+      maxOutputTokens: 512,
       providerOptions: resolved.providerOptions,
     });
 
