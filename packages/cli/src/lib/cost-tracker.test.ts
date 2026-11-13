@@ -35,6 +35,21 @@ describe("CostTracker", () => {
     expect(summary.totalCostUsd).toBeCloseTo(0.84, 5);
   });
 
+  test("should account for Anthropic cache write tokens (25% surcharge)", () => {
+    CostTracker.recordUsage("claude-3-5-sonnet", {
+      promptTokens: 1_000_000,
+      completionTokens: 0,
+      cacheWriteTokens: 500_000, // 500k write @ $3.75/1M
+    });
+
+    const summary = CostTracker.getSummary();
+    expect(summary.totalCacheWriteTokens).toBe(500_000);
+    // 1M prompt * $3.00/1M = $3.00
+    // 500k write * $3.75/1M = $1.875
+    // total = $4.875
+    expect(summary.totalCostUsd).toBeCloseTo(4.875, 3);
+  });
+
   test("should correctly compute cost for GPT-4o-mini tokens", () => {
     CostTracker.recordUsage("gpt-4o-mini", {
       promptTokens: 1_000_000,
@@ -65,5 +80,79 @@ describe("CostTracker", () => {
     CostTracker.reset();
     expect(CostTracker.formatTokens()).toBe("0");
     expect(CostTracker.formatCost()).toBe("$0.00");
+  });
+
+  test("should show cached token count in formatTokens when cache hits exist", () => {
+    CostTracker.recordUsage("claude-3-5-sonnet", {
+      promptTokens: 10_000,
+      completionTokens: 500,
+      cachedTokens: 8_000,
+    });
+
+    // Total = 10.5k, cached = 8k → "10.5k (8.0k cached)"
+    expect(CostTracker.formatTokens()).toBe("10.5k (8.0k cached)");
+  });
+
+  test("should prefix-match versioned model IDs for pricing", () => {
+    // claude-3-7-sonnet-20250219 should match "claude-3-7-sonnet" pricing
+    CostTracker.recordUsage("claude-3-7-sonnet-20250219", {
+      promptTokens: 1_000_000,
+      completionTokens: 0,
+    });
+    // $3.00/1M
+    expect(CostTracker.getSummary().totalCostUsd).toBeCloseTo(3.0, 5);
+  });
+
+  test("should compute non-zero cost for DeepSeek models", () => {
+    CostTracker.recordUsage("deepseek-chat", {
+      promptTokens: 10_000,
+      completionTokens: 2_000,
+    });
+    const summary = CostTracker.getSummary();
+    // 10k * $0.14/1M + 2k * $0.28/1M = $0.0014 + $0.00056 = $0.00196
+    expect(summary.totalCostUsd).toBeGreaterThan(0);
+    expect(summary.totalCostUsd).toBeCloseTo(0.00196, 5);
+    expect(CostTracker.formatCost()).toBe("$0.0020");
+  });
+
+  test("should compute non-zero cost for Groq and Gemini models", () => {
+    CostTracker.recordUsage("llama-3.3-70b-versatile", {
+      promptTokens: 5_000,
+      completionTokens: 1_000,
+    });
+    expect(CostTracker.getSummary().totalCostUsd).toBeGreaterThan(0);
+
+    CostTracker.reset();
+    CostTracker.recordUsage("gemini-1.5-flash", {
+      promptTokens: 20_000,
+      completionTokens: 5_000,
+    });
+    expect(CostTracker.getSummary().totalCostUsd).toBeGreaterThan(0);
+  });
+
+  test("should resolve pricing for OpenRouter models with provider prefix", () => {
+    CostTracker.recordUsage("anthropic/claude-3.5-sonnet", {
+      promptTokens: 100_000,
+      completionTokens: 10_000,
+    });
+    // 100k * $3/1M + 10k * $15/1M = $0.30 + $0.15 = $0.45
+    expect(CostTracker.getSummary().totalCostUsd).toBeCloseTo(0.45, 3);
+  });
+
+  test("should format tiny micro-costs as <$0.0001 instead of $0.00", () => {
+    CostTracker.recordUsage("gemini-2.0-flash", {
+      promptTokens: 100, // 100 * $0.10/1M = $0.00001
+      completionTokens: 0,
+    });
+    expect(CostTracker.getSummary().totalCostUsd).toBeGreaterThan(0);
+    expect(CostTracker.formatCost()).toBe("<$0.0001");
+  });
+
+  test("should provide non-zero fallback cost for completely unknown models", () => {
+    CostTracker.recordUsage("custom-finetuned-llama-model-xyz", {
+      promptTokens: 10_000,
+      completionTokens: 2_000,
+    });
+    expect(CostTracker.getSummary().totalCostUsd).toBeGreaterThan(0);
   });
 });

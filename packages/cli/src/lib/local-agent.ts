@@ -284,25 +284,67 @@ const chatApp = new Hono().post("/", zValidator("json", submitChatSchema), async
   const mcpTools = await McpManager.getAiSdkTools();
   const combinedTools = { ...(tools as Record<string, any>), ...mcpTools };
 
+  const systemPrompt = buildSystemPrompt({ mode, projectConfig: findProjectConfig() ?? undefined, configFileName, skillsCatalog });
+
+  // ---------------------------------------------------------------------------
+  // Anthropic prompt cache breakpoints
+  //
+  // Wrapping the static system prompt with cacheControl: { type: "ephemeral" }
+  // tells Anthropic to cache the prefix up to that point. Subsequent turns that
+  // share the same static prefix get a 90% discount on cached input tokens.
+  // ---------------------------------------------------------------------------
+  const isAnthropic = (resolvedModel.provider as string) === "anthropic";
+  const anthropicCacheOptions = isAnthropic
+    ? {
+        anthropic: {
+          cacheControl: { type: "ephemeral" },
+        },
+      }
+    : undefined;
+
+  // Merge cache options on top of any existing provider options (e.g. thinking)
+  const mergedProviderOptions = anthropicCacheOptions
+    ? {
+        ...resolvedModel.providerOptions,
+        ...anthropicCacheOptions,
+      }
+    : resolvedModel.providerOptions;
+
   let result;
   try {
     result = streamText({
       model: resolvedModel.model,
-      system: buildSystemPrompt({ mode, projectConfig: findProjectConfig() ?? undefined, configFileName, skillsCatalog }),
+      system: systemPrompt,
       messages: modelMessages,
       tools: combinedTools,
-      providerOptions: resolvedModel.providerOptions,
+      providerOptions: mergedProviderOptions,
       onFinish(event) {
         completedUsage = event.totalUsage;
         if (event.totalUsage) {
+          const usageAny = event.totalUsage as any;
+          const promptTokens =
+            event.totalUsage.inputTokens ??
+            usageAny.promptTokens ??
+            0;
+          const completionTokens =
+            event.totalUsage.outputTokens ??
+            usageAny.completionTokens ??
+            0;
           const cachedTokens =
-            (event.totalUsage as any).cachedPromptTokens ??
-            (event.totalUsage as any).cachedTokens ??
+            event.totalUsage.inputTokenDetails?.cacheReadTokens ??
+            usageAny.cacheReadInputTokens ??
+            usageAny.cachedPromptTokens ??
+            usageAny.cachedTokens ??
+            0;
+          const cacheWriteTokens =
+            event.totalUsage.inputTokenDetails?.cacheWriteTokens ??
+            usageAny.cacheCreationInputTokens ??
             0;
           CostTracker.recordUsage(activeModel, {
-            promptTokens: event.totalUsage.inputTokens ?? 0,
-            completionTokens: event.totalUsage.outputTokens ?? 0,
+            promptTokens,
+            completionTokens,
             cachedTokens,
+            cacheWriteTokens,
           });
         }
       },
@@ -327,23 +369,48 @@ const chatApp = new Hono().post("/", zValidator("json", submitChatSchema), async
           );
           activeModel = fallback.modelId;
 
+          // Recompute provider options for the fallback model (may differ in provider)
+          const isFallbackAnthropic = (resolvedModel.provider as string) === "anthropic";
+          const fallbackCacheOptions = isFallbackAnthropic
+            ? { anthropic: { cacheControl: { type: "ephemeral" } } }
+            : undefined;
+          const fallbackProviderOptions = fallbackCacheOptions
+            ? { ...resolvedModel.providerOptions, ...fallbackCacheOptions }
+            : resolvedModel.providerOptions;
+
           result = streamText({
             model: resolvedModel.model,
-            system: buildSystemPrompt({ mode, projectConfig: findProjectConfig() ?? undefined, configFileName, skillsCatalog }),
+            system: systemPrompt,
             messages: modelMessages,
             tools: combinedTools,
-            providerOptions: resolvedModel.providerOptions,
+            providerOptions: fallbackProviderOptions,
             onFinish(event) {
               completedUsage = event.totalUsage;
               if (event.totalUsage) {
+                const usageAny = event.totalUsage as any;
+                const promptTokens =
+                  event.totalUsage.inputTokens ??
+                  usageAny.promptTokens ??
+                  0;
+                const completionTokens =
+                  event.totalUsage.outputTokens ??
+                  usageAny.completionTokens ??
+                  0;
                 const cachedTokens =
-                  (event.totalUsage as any).cachedPromptTokens ??
-                  (event.totalUsage as any).cachedTokens ??
+                  event.totalUsage.inputTokenDetails?.cacheReadTokens ??
+                  usageAny.cacheReadInputTokens ??
+                  usageAny.cachedPromptTokens ??
+                  usageAny.cachedTokens ??
+                  0;
+                const cacheWriteTokens =
+                  event.totalUsage.inputTokenDetails?.cacheWriteTokens ??
+                  usageAny.cacheCreationInputTokens ??
                   0;
                 CostTracker.recordUsage(activeModel, {
-                  promptTokens: event.totalUsage.inputTokens ?? 0,
-                  completionTokens: event.totalUsage.outputTokens ?? 0,
+                  promptTokens,
+                  completionTokens,
                   cachedTokens,
+                  cacheWriteTokens,
                 });
               }
             },

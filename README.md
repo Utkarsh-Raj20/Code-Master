@@ -86,7 +86,7 @@ Skills are domain-specific instruction packs (markdown files with YAML frontmatt
 
 You can also add **project-level skills** in `.mastercode/skills/<name>/SKILL.md`.
 
-### MCP Integration
+### MCP Integration 
 Mastercode discovers MCP servers from:
 1. `.mcp.json` in the project root
 2. `~/.mcp.json` for global servers

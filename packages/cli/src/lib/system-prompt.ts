@@ -18,6 +18,13 @@ type SystemPromptParams = {
   skillsCatalog?: string;
 };
 
+/**
+ * Builds a string system prompt for non-Anthropic providers, or a structured
+ * message array for Anthropic (with `cacheControl` breakpoints on static blocks).
+ *
+ * Returns the string form by default; Anthropic cache support is applied via
+ * `experimental_providerMetadata` in `local-agent.ts`.
+ */
 export function buildSystemPrompt({
   mode,
   projectConfig,
@@ -106,4 +113,17 @@ export function buildSystemPrompt({
   }
 
   return parts.join("\n");
+}
+
+/**
+ * Returns the static "core" portion of the system prompt — the guidelines that
+ * never change between turns. Used by Anthropic cache breakpoints to maximise
+ * cache hit rate.
+ */
+export function buildStaticSystemPromptCore(): string {
+  return `You are an expert software engineer working as a coding assistant inside a terminal application.
+
+  The application has two modes the user can switch between:
+  - **PLAN** — Read-only analysis and planning. No file modifications.
+  - **BUILD** — Full implementation with read and write tools.`;
 }
