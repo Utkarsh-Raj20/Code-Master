@@ -374,4 +374,14 @@ Environment variable placeholders (`${VAR}`) are resolved from your `.env` file 
 
 ## 📄 License
 
-This project is open source. See the repository for license details.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+### What does this mean?
+
+- ✅ **Commercial use** - Use it in commercial projects
+- ✅ **Modification** - Modify and adapt the code
+- ✅ **Distribution** - Share and distribute
+- ✅ **Private use** - Use privately without restrictions
+- ℹ️ **Attribution required** - Keep the copyright notice
+
+**TL;DR:** Free to use, modify, and distribute. Just keep the license notice.
