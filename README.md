@@ -7,8 +7,8 @@
 
 <p>
   <a href="https://github.com/Utkarsh-Raj20/Code-Master/releases"><img src="https://img.shields.io/github/v/release/Utkarsh-Raj20/Code-Master?style=for-the-badge" alt="Release" /></a>
-  <a href="https://github.com/Utkarsh-Raj20/Code-Master/blob/master/LICENSE"><img src="https://img.shields.io/github/license/Utkarsh-Raj20/Code-Master?style=for-the-badge" alt="License" /></a>
-  <a href="https://github.com/Utkarsh-Raj20/Code-Master/stargazers"><img src="https://img.shields.io/github/stars/Utkarsh-Raj20/Code-Master?style=for-the-badge" alt="Stars" /></a>
+  <a href="https://github.com/Utkarsh-Raj20/Code-Master/blob/master/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue?style=for-the-badge" alt="License: MIT" /></a>
+  <a href="https://github.com/Utkarsh-Raj20/Code-Master/stargazers"><img src="https://img.shields.io/github/stars/Utkarsh-Raj20/Code-Master?style=for-the-badge&color=yellow" alt="Stars" /></a>
 </p>
 
 <p>A fully local, terminal-based AI coding agent.</p>
