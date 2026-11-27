@@ -1,5 +1,7 @@
 {
   "name": "@mastercode/cli",
+  "version": "1.0.0",
+  "license": "MIT",
   "module": "src/index.tsx",
   "type": "module",
   "private": true,
