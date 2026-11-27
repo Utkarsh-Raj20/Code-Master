@@ -3,11 +3,22 @@
 <br />
 <br />
 
-<h1>mastercode</h1>
+<h1>MASTERCODE</h1>
+
+<p>
+  <a href="https://github.com/Utkarsh-Raj20/Code-Master/releases"><img src="https://img.shields.io/github/v/release/Utkarsh-Raj20/Code-Master?style=for-the-badge" alt="Release" /></a>
+  <a href="https://github.com/Utkarsh-Raj20/Code-Master/blob/master/LICENSE"><img src="https://img.shields.io/github/license/Utkarsh-Raj20/Code-Master?style=for-the-badge" alt="License" /></a>
+  <a href="https://github.com/Utkarsh-Raj20/Code-Master/stargazers"><img src="https://img.shields.io/github/stars/Utkarsh-Raj20/Code-Master?style=for-the-badge" alt="Stars" /></a>
+</p>
 
 <p>A fully local, terminal-based AI coding agent.</p>
 
 <p>Plan, chat, and build inside your project — entirely from the terminal.<br />Built with Bun, OpenTUI + React, Hono, Vercel AI SDK, and MCP.</p>
+
+<br />
+
+<!-- Add your screenshot here -->
+<img src="docs/screenshots/main-interface.png" alt="Mastercode Terminal UI" width="800" />
 
 <br />
 
@@ -36,7 +47,42 @@ Mastercode is a **standalone, privacy-first AI coding assistant** that runs enti
 
 Think of it as your own local Claude Code / Cursor agent — but open-source, customizable, and provider-agnostic.
 
+> 📦 **Latest Release:** [v1.0.0](https://github.com/Utkarsh-Raj20/Code-Master/releases/latest) - Initial stable release with 13 built-in skills, MCP integration, and multi-provider support.
+
+## 🎯 Why Mastercode?
+
+| Feature | Mastercode | Cloud Agents | Other Local Tools |
+|---------|-----------|--------------|-------------------|
+| **Privacy** | ✅ 100% local | ❌ Code sent to cloud | ⚠️ Varies |
+| **Provider Choice** | ✅ 6+ providers | ❌ Locked to one | ⚠️ Limited |
+| **Extensibility** | ✅ MCP + Skills | ❌ Closed system | ⚠️ Limited APIs |
+| **Cost Control** | ✅ Your API keys | ❌ Subscription + markup | ✅ Direct API |
+| **Offline Capable** | ✅ With local models | ❌ Requires internet | ⚠️ Varies |
+| **Open Source** | ✅ Fully open | ❌ Proprietary | ⚠️ Some open |
+
 ## 🎬 Features
+
+<!-- 
+Uncomment and add screenshots:
+
+### Terminal UI Demo
+
+<div align="center">
+  <img src="docs/screenshots/main-interface.png" alt="Main Interface" width="800" />
+  <p><em>Clean terminal interface with real-time streaming responses</em></p>
+</div>
+
+<div align="center">
+  <img src="docs/screenshots/skills-dialog.png" alt="Skills Dialog" width="600" />
+  <p><em>13 built-in skills with auto-activation</em></p>
+</div>
+
+<div align="center">
+  <img src="docs/screenshots/cost-tracking.png" alt="Cost Tracking" width="600" />
+  <p><em>Real-time token usage and cost tracking</em></p>
+</div>
+
+-->
 
 ### Core Agent
 - **Plan & Build Modes** — Read-only planning tools or full write/edit/shell execution
@@ -106,7 +152,7 @@ Supports **stdio**, **SSE**, and **streamable HTTP** transports. MCP tools appea
 | Command | Description |
 |---------|-------------|
 | `/new` | Start a new conversation |
-| `/init` | Initialize project config (`.mastercode.md`) |
+| `/init` | Initialize project config (`<projectname>.md`) |
 | `/model` | Switch AI model |
 | `/keys` | Manage API keys |
 | `/mode` | Toggle Plan ↔ Build mode |
@@ -129,7 +175,9 @@ Supports **stdio**, **SSE**, and **streamable HTTP** transports. MCP tools appea
 - [Bun](https://bun.sh) v1.0+ installed
 - At least one AI provider API key (Anthropic, OpenAI, Google, DeepSeek, Groq, or OpenRouter)
 
-### 1. Clone and install
+### Installation
+
+#### 1. Clone and install
 
 ```bash
 git clone https://github.com/Utkarsh-Raj20/Code-Master.git
@@ -137,10 +185,11 @@ cd Code-Master
 bun install
 ```
 
-### 2. Configure environment
+#### 2. Configure your API keys
 
 ```bash
 cp .env.example .env
+# Edit .env and add at least one AI provider API key
 ```
 
 Add your API keys (you only need at least one):
@@ -160,27 +209,38 @@ GOOGLE_API_KEY=...
 
 > **Note:** You can also add/manage API keys at runtime using the `/keys` command inside the CLI.
 
-### 3. Run the CLI
-
-```bash
-bun run dev
-```
-
-That's it! Mastercode starts in your terminal, ready to assist with your project.
-
-### 4. (Optional) Install globally
-
-To use `mastercode` as a global command from any directory:
-
-```bash
-bun run link:cli
-mastercode
-```
-
-Or use the install script:
+#### 3. Install globally (recommended)
 
 ```bash
 bun run link:global
+```
+
+Now you can use `mastercode` from **any project directory**!
+
+### Usage
+
+Navigate to any project and run:
+
+```bash
+cd /path/to/your/project
+mastercode
+```
+
+Mastercode will start in your terminal with full access to your project files.
+
+**First-time setup in a new project:**
+1. Run `mastercode` in your project directory
+2. Use `/init` command to generate project-specific instructions
+3. Start chatting with the AI agent!
+
+**Alternative: Run without global install**
+
+If you prefer not to install globally, you can run Mastercode in development mode:
+
+```bash
+cd Code-Master
+bun run dev
+# Mastercode starts in the Code-Master directory
 ```
 
 ## 📁 Project Structure
